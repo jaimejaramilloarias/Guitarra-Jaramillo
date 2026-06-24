@@ -17,10 +17,11 @@
       --line: rgba(255, 255, 255, 0.14);
       --text: #fffaf0;
       --muted: rgba(255, 250, 240, 0.68);
-      --grid: rgba(255, 250, 240, 0.34);
-      --string: rgba(255, 250, 240, 0.78);
-      --board1: #6d421a;
-      --board2: #2e1c0f;
+      --grid: rgba(243, 224, 187, 0.78);
+      --string: rgba(255, 247, 226, 0.92);
+      --board1: #724116;
+      --board2: #3b1f0b;
+      --board3: #1f1007;
     }
 
     * {
@@ -197,9 +198,12 @@
     }
 
     #board {
-      background: linear-gradient(var(--board1), var(--board2));
-      border-radius: 8px;
-      box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.42);
+      background: transparent;
+      border-radius: 14px;
+      box-shadow:
+        0 16px 36px rgba(0, 0, 0, 0.28),
+        inset 0 0 18px rgba(0, 0, 0, 0.5);
+      display: block;
       max-width: none;
     }
 
@@ -305,7 +309,7 @@
 /***************** Constantes *************************/
 const NOTE=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],
       STR_PITCH=[64,59,55,50,45,40], // E2‑E4 6→1
-      STRINGS=6, BOARD_H=210,TOTAL_FRETS=22;
+      STRINGS=6, BOARD_H=160,TOTAL_FRETS=22;
 let   RAD=14,visibleFrets=16;
 const SCALE={
   mayor:[2,2,1,2,2,2,1],mayor_armonica:[2,2,1,2,1,3,1],menor_melodica:[2,1,2,2,2,2,1],menor_armonica:[2,1,2,2,1,3,1],
@@ -318,7 +322,7 @@ const SCALE={
 const SPECIAL=["pentatonica_mayor","blues","por_tonos"];
 /***************** Utilidades *************************/
 const roman=n=>({1:"I",2:"II",3:"III",4:"IV",5:"V",6:"VI",7:"VII",8:"VIII",9:"IX",10:"X",11:"XI",12:"XII",13:"XIII",14:"XIV",15:"XV",16:"XVI",17:"XVII",18:"XVIII",19:"XIX",20:"XX",21:"XXI",22:"XXII"}[n]||n),
-      fretW=()=>BOARD_H/STRINGS*2,
+      fretW=()=>BOARD_H/STRINGS*2.55,
       pcPattern=(root,intv)=>{const a=[root];for(let i=0;a.length<12;i++)a.push((a.at(-1)+intv[i%intv.length])%12);return a},
       pick=(pc,r,pcs,s)=>s?(pc===r?"#0f0":pcs.indexOf(pc)%3===0?"#08f":"#f80"):pc===r?"#0f0":[2,4,6].includes(pcs.indexOf(pc))?"#08f":[1,3,5].includes(pcs.indexOf(pc))?(pcs.includes((pc+11)%12)?"#f00":"#f80"):'#aaa';
 /***************** DOM refs *************************/
@@ -330,14 +334,83 @@ let offset=0;
 /***************** Helpers canvas *************************/
 function fitCanvas(){const w=visibleFrets*fretW(),dpr=window.devicePixelRatio||1;cvs.style.width=`${w}px`;cvs.style.height=`${BOARD_H}px`;cvs.width=w*dpr;cvs.height=BOARD_H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);}
 function buildPositions(){posSel.length=0;const rootPc=NOTE.indexOf(rootSel.value),ints=SCALE[scaleSel.value],pcs=pcPattern(rootPc,ints),rootsOn6=[];for(let f = 1; f <= 12; f++){const pc=(STR_PITCH[0]+f)%12;if(pcs.includes(pc))rootsOn6.push(f);}rootsOn6.forEach(f=>posSel.add(new Option(roman(f),f)));}
-function draw(){fitCanvas();ctx.clearRect(0,0,cvs.width,cvs.height);const fh=BOARD_H/STRINGS,fw=fretW();ctx.lineWidth=1;
-// cuerdas con grosor
-for(let s=0;s<STRINGS;s++){ctx.strokeStyle="";ctx.lineWidth = 1 + s * 0.6;const y=s*fh+fh/2;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(visibleFrets*fw,y);ctx.stroke();}
-// trastes
-ctx.lineWidth=1;ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--grid');for(let f=0;f<=visibleFrets;f++){ctx.beginPath();ctx.moveTo(f*fw,0);ctx.lineTo(f*fw,BOARD_H);ctx.stroke();}
+function roundedRectPath(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
+function draw(){
+fitCanvas();
+const fw=fretW(),width=visibleFrets*fw,padY=22,boardH=BOARD_H-(padY*2),radius=14,stringGap=boardH/(STRINGS-1);
+ctx.clearRect(0,0,width,BOARD_H);
+
+roundedRectPath(0.5,padY,width-1,boardH,radius);
+ctx.save();
+ctx.clip();
+
+const bg=ctx.createLinearGradient(0,padY,0,padY+boardH);
+bg.addColorStop(0,getComputedStyle(document.documentElement).getPropertyValue('--board1').trim());
+bg.addColorStop(0.52,getComputedStyle(document.documentElement).getPropertyValue('--board2').trim());
+bg.addColorStop(1,getComputedStyle(document.documentElement).getPropertyValue('--board3').trim());
+ctx.fillStyle=bg;
+ctx.fillRect(0,padY,width,boardH);
+
+ctx.globalAlpha=0.22;
+for(let i=0;i<22;i++){
+  const y=padY+8+(i*11)%boardH;
+  ctx.strokeStyle=i%2?'#9d6732':'#2b1508';
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(0,y);
+  ctx.bezierCurveTo(width*0.25,y+8,width*0.65,y-7,width,y+3);
+  ctx.stroke();
+}
+ctx.globalAlpha=1;
+
+ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--grid');
+ctx.lineCap='butt';
+for(let f=0;f<=visibleFrets;f++){
+  const x=f*fw;
+  ctx.lineWidth=f===0?5:2.4;
+  ctx.beginPath();
+  ctx.moveTo(x,padY);
+  ctx.lineTo(x,padY+boardH);
+  ctx.stroke();
+}
+
+ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--string');
+for(let s=0;s<STRINGS;s++){
+  const y=padY+(s*stringGap);
+  ctx.lineWidth=1.4+(s*0.28);
+  ctx.beginPath();
+  ctx.moveTo(0,y);
+  ctx.lineTo(width,y);
+  ctx.stroke();
+}
+
+ctx.restore();
+
+roundedRectPath(0.5,padY,width-1,boardH,radius);
+ctx.strokeStyle='rgba(243,224,187,0.78)';
+ctx.lineWidth=1.5;
+ctx.stroke();
+
 const rootPc=NOTE.indexOf(rootSel.value),ints=SCALE[scaleSel.value],pcs=pcPattern(rootPc,ints),spec=SPECIAL.includes(scaleSel.value);
-ctx.font=`${RAD*.85}px Inter, sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";
-for(let s=0;s<STRINGS;s++){for(let f=0;f<visibleFrets;f++){const realF=f+offset+1,pc=(STR_PITCH[s]+realF)%12;if(!pcs.includes(pc))continue;const x=f*fw+fw/2,y=s*fh+fh/2;ctx.fillStyle=pick(pc,rootPc,pcs,spec);ctx.beginPath();ctx.arc(x,y,RAD,0,Math.PI*2);ctx.fill();ctx.fillStyle="#000";ctx.fillText(NOTE[pc],x,y);} }
+ctx.font=`900 ${RAD*.9}px Inter, sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";
+for(let s=0;s<STRINGS;s++){
+  for(let f=0;f<visibleFrets;f++){
+    const realF=f+offset+1,pc=(STR_PITCH[s]+realF)%12;
+    if(!pcs.includes(pc))continue;
+    const x=f*fw+fw/2,y=padY+(s*stringGap);
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,0.42)';
+    ctx.shadowBlur=8;
+    ctx.shadowOffsetY=3;
+    ctx.fillStyle=pick(pc,rootPc,pcs,spec);
+    ctx.beginPath();
+    ctx.arc(x,y,RAD,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle="#161514";
+    ctx.fillText(NOTE[pc],x,y+0.5);
+  }
+}
 fretLabel.textContent=roman(offset+1);}
 function refresh(){buildPositions();fretVal.textContent=visibleFrets;if(!posSel.value)posSel.selectedIndex=0;offset=parseInt(posSel.value||1)-1;draw();}
 /***************** Listeners *************************/
